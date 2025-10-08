@@ -1,4 +1,4 @@
-# THIS FILE IS EXCLUSIVELY MAINTAINED by the project aedev.project_tpls v0.3.56
+# THIS FILE IS EXCLUSIVELY MAINTAINED by the project aedev.project_tpls v0.3.58
 """ setup of ae namespace module portion pythonanywhere: PythonAnywhere Web API Client. """
 # noinspection PyUnresolvedReferences
 import sys
@@ -15,23 +15,23 @@ setup_kwargs = {
         'Programming Language :: Python :: 3.9', 'Topic :: Software Development :: Libraries :: Python Modules',
         'Typing :: Typed'],
     'description': 'ae namespace module portion pythonanywhere: PythonAnywhere Web API Client',
-    'extras_require': {       'dev': [       'aedev_project_tpls', 'ae_ae', 'anybadge', 'coverage-badge', 'aedev_git_repo_manager', 'flake8',
+    'extras_require': {       'dev': [       'aedev_project_tpls', 'ae_ae', 'anybadge', 'coverage-badge', 'aedev_project_manager', 'flake8',
                        'mypy', 'pylint', 'pytest', 'pytest-cov', 'pytest-django', 'typing', 'types-setuptools'],
         'docs': [],
-        'tests': [       'anybadge', 'coverage-badge', 'aedev_git_repo_manager', 'flake8', 'mypy', 'pylint', 'pytest',
+        'tests': [       'anybadge', 'coverage-badge', 'aedev_project_manager', 'flake8', 'mypy', 'pylint', 'pytest',
                          'pytest-cov', 'pytest-django', 'typing', 'types-setuptools']},
     'install_requires': ['requests', 'types-requests', 'ae_base', 'ae_paths', 'ae_dev_ops'],
     'keywords': ['configuration', 'development', 'environment', 'productivity'],
     'license': 'GPL-3.0-or-later',
-    'long_description': ('<!-- THIS FILE IS EXCLUSIVELY MAINTAINED by the project ae.ae v0.3.97 -->\n'
- '<!-- THIS FILE IS EXCLUSIVELY MAINTAINED by the project aedev.namespace_root_tpls v0.3.19 -->\n'
- '# pythonanywhere 0.3.1\n'
+    'long_description': ('<!-- THIS FILE IS EXCLUSIVELY MAINTAINED by the project ae.ae v0.3.100 -->\n'
+ '<!-- THIS FILE IS EXCLUSIVELY MAINTAINED by the project aedev.namespace_root_tpls v0.3.21 -->\n'
+ '# pythonanywhere 0.3.2\n'
  '\n'
  '[![GitLab develop](https://img.shields.io/gitlab/pipeline/ae-group/ae_pythonanywhere/develop?logo=python)](\n'
  '    https://gitlab.com/ae-group/ae_pythonanywhere)\n'
  '[![LatestPyPIrelease](\n'
- '    https://img.shields.io/gitlab/pipeline/ae-group/ae_pythonanywhere/release0.3.1?logo=python)](\n'
- '    https://gitlab.com/ae-group/ae_pythonanywhere/-/tree/release0.3.1)\n'
+ '    https://img.shields.io/gitlab/pipeline/ae-group/ae_pythonanywhere/release0.3.2?logo=python)](\n'
+ '    https://gitlab.com/ae-group/ae_pythonanywhere/-/tree/release0.3.2)\n'
  '[![PyPIVersions](https://img.shields.io/pypi/v/ae_pythonanywhere)](\n'
  '    https://pypi.org/project/ae-pythonanywhere/#history)\n'
  '\n'
@@ -108,7 +108,7 @@ setup_kwargs = {
         'Source': 'https://ae.readthedocs.io/en/latest/_modules/ae/pythonanywhere.html'},
     'python_requires': '>=3.9',
     'url': 'https://gitlab.com/ae-group/ae_pythonanywhere',
-    'version': '0.3.1',
+    'version': '0.3.2',
     'zip_safe': True,
 }
 

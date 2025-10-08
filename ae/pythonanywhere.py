@@ -38,8 +38,6 @@ the following examples demonstrate key functionality, including how to initializ
 the :class:`PythonanywhereApi` and list deployed files/folders, excluding common
 temporary directories::
 
-.. code-block:: python
-
     from ae.paths import Collector
     from ae.pythonanywhere import PythonanywhereApi
 
@@ -68,6 +66,7 @@ temporary directories::
         print("\n".join(sorted(list(all_files))))
     else:
         print("No files found or project directory is empty.")
+
 
 more useful methods
 -------------------
@@ -99,7 +98,7 @@ from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items     
 from ae.dev_ops import code_version                                                         # type: ignore
 
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
