@@ -1,27 +1,31 @@
-""" unit tests for ae_pythonanywhere module package.
+""" unit and integration tests of the ae_pythonanywhere module package.
 
-minimal testing because of the rate-limits on pythonanywhere.com (each endpoint has a 40 requests per minute rate limit,
-apart from the send_input endpoint on consoles, which is 120 requests per minute - see
+minimal and only local integration testing because of the rate-limits on pythonanywhere.com (each endpoint has a 40
+requests per minute rate limit, apart from the send_input endpoint on consoles, which is 120 requests per minute - see
 `https://help.pythonanywhere.com/pages/API`__ for more details).
 """
 import os
 import pytest
 import requests
 
-from conftest import skip_gitlab_ci
 from unittest.mock import Mock, patch
 
-from ae.base import PY_CACHE_FOLDER, PY_INIT, load_dotenvs, norm_name
-from ae.shell import get_domain_user_variable, get_main_app
+from conftest import skip_gitlab_ci
+
+from ae.base import PY_CACHE_FOLDER, PY_INIT, load_dotenvs, norm_name, os_path_join
+from ae.shell import get_domain_user_var
 from ae.pythonanywhere import PythonanywhereApi
 
 
-TEST_PROJECT_NAME = 'ae_pythonanywhere_tests'       #: package name used for integrity tests on web server
+TST_DOMAIN_NAME = 'python_anywhere.tst'
+TST_USER_NAME = 'py_any_user'
+TST_WEB_TOKEN = 'py_any_token'
+TST_PROJECT_NAME = 'ae_pythonanywhere_tests'        #: package name used for local unit and integration tests
 
-pkg0_ini_path = os.path.join(TEST_PROJECT_NAME, PY_INIT)
+pkg0_ini_path = os.path.join(TST_PROJECT_NAME, PY_INIT)
 pkg0_version = '333.66.9'
 pkg0_ini_content = f'""" test package doc string. """\n\n__version__ = \'{pkg0_version}\'\n'.encode()
-pkg0_static_file = f'{TEST_PROJECT_NAME}/static/baseball.html'
+pkg0_static_file = f'{TST_PROJECT_NAME}/static/baseball.html'
 
 pkg1_name = "test_pkg1"
 pkg1_file_path = f'{pkg1_name}/namespace_mod.py'
@@ -51,24 +55,28 @@ skipped_lean_paths = {'not_deployed_root_file.xxx',
 all_file_paths = all_pkg_paths | skipped_web_paths | skipped_lean_paths | static_file_paths
 
 
+@pytest.fixture
+def api_obj():
+    yield PythonanywhereApi(TST_DOMAIN_NAME, TST_USER_NAME, TST_WEB_TOKEN, TST_PROJECT_NAME)
+
+
 @pytest.fixture(scope='class')
 def connection():
-    """ provide personal pythonanywhere remote web server for tests only running locally with personal credentials. """
-    main_app = get_main_app()
-    load_dotenvs(main_app)
+    """ pythonanywhere remote web server connection for integration tests, only run locally using .env credentials. """
+    load_dotenvs()
 
     web_domain = "www.pythonanywhere.com"
     web_user = os.environ.get('PDV_AUTHOR')
-    web_token = get_domain_user_variable(main_app, 'web_token', domain=web_domain, user=web_user)
+    web_token = get_domain_user_var('web_token', domain=web_domain, user=web_user)
 
-    remote_connection = PythonanywhereApi(web_domain, web_user, web_token, TEST_PROJECT_NAME)
+    remote_connection = PythonanywhereApi(web_domain, web_user, web_token, TST_PROJECT_NAME)
 
     yield remote_connection
 
 
 @pytest.fixture(scope='class')
 def con_pkg(connection):
-    """ provide personal pythonanywhere remote web server connection plus test package for tests """
+    """ provide personal pythonanywhere remote web server connection plus test package for integration tests """
     del_fil = 'test0/sub4/del_file.txt'
     assert not connection.deploy_file(del_fil, b"deleted to test empty root folder")
     assert connection.error_message == ""
@@ -91,13 +99,118 @@ def test_pythonanywhere_declarations():
     """ test the module declarations (also for having at least one test case running on gitlab ci). """
     assert PythonanywhereApi
 
-    assert norm_name(TEST_PROJECT_NAME) == TEST_PROJECT_NAME
+    assert norm_name(TST_PROJECT_NAME) == TST_PROJECT_NAME
 
     assert requests             # not-used-inspection-warning workaround, used for requests.Response.json() patching
 
 
+class TestPythonanywhereApi:
+    def test_instantiation(self, api_obj):
+        assert TST_DOMAIN_NAME in api_obj.base_url
+        assert TST_USER_NAME == api_obj.web_user
+        assert TST_USER_NAME in api_obj.base_url
+        assert TST_USER_NAME in api_obj.pkg_files_url_part
+        assert TST_WEB_TOKEN in api_obj.protocol_headers['Authorization']
+        assert TST_PROJECT_NAME == api_obj.project_name
+        assert TST_PROJECT_NAME in api_obj.pkg_files_url_part
+
+    def test_project_name_setter(self, api_obj):
+        api_obj.project_name = 'new-prj-name'
+
+        assert 'new-prj-name' == api_obj.project_name
+        assert 'new-prj-name' in api_obj.pkg_files_url_part
+
+    def test__folder_items(self, api_obj):
+        response_mock = Mock(status_code=200, json=lambda: {'file-name': {'type': 'file-type'}})
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=response_mock):
+            ret = api_obj._folder_items('folder-path')
+        assert isinstance(ret, list) and len(ret) == 1
+        assert ret[0]['file_path'] == os_path_join('folder-path', 'file-name')
+        assert ret[0]['type'] == 'file-type'
+        assert not api_obj.error_message    # 404 error gets reset
+
+    def test__folder_items_err_inexistent_file_path(self, api_obj):
+        assert api_obj._folder_items('inexistent_file_path') is None
+        assert api_obj.error_message
+
+    def test__folder_items_err_inexistent_folder(self, api_obj):
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=Mock(status_code=404)):
+            api_obj.error_message = 'simulate folder not found 404 error'
+            assert api_obj._folder_items('any_folder_path') is None
+            assert not api_obj.error_message    # 404 error gets reset
+
+    def test__folder_items_err_empty_folder(self, api_obj):
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=Mock(status_code=200, json=lambda: {})):
+            assert api_obj._folder_items('any_folder_path') == []
+            assert not api_obj.error_message
+
+    def test__from_json_err(self, api_obj):
+        assert api_obj._from_json(Mock(json=lambda: 1 / 0, content='err-content')) is None
+        assert 'err-content' in api_obj.error_message
+
+    def test_available_consoles(self, api_obj):
+        response_mock = Mock(json=lambda: [{'console-name': 'any-type'}])
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=response_mock):
+            ret = api_obj.available_consoles()
+        assert isinstance(ret, list) and len(ret) == 1
+        assert ret[0]['console-name'] == 'any-type'
+        assert not api_obj.error_message
+
+    def test_available_consoles_err(self, api_obj):
+        response_mock = Mock(json=lambda: None)
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=response_mock):
+            ret = api_obj.available_consoles()
+        assert ret == []
+
+    def test_console_execute(self, api_obj):
+        response_mock = Mock(json=lambda: {'output': 'out-put-str'})
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=response_mock):
+            ret = api_obj.console_execute(699, 'command-str')
+        assert ret == 'out-put-str'
+        assert not api_obj.error_message
+
+    def test_console_execute_err(self, api_obj):
+        api_obj.error_message = 'con_exe_err-message'
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=Mock()):
+            ret = api_obj.console_execute(699, 'command-str')
+        assert ret == ""
+        assert api_obj.error_message
+
+    def test_deployed_code_files(self, api_obj):
+        with patch('ae.pythonanywhere.PythonanywhereApi._request',
+                   return_value=Mock(json=lambda: {'file-Name': {'type': 'any.type'}})):
+            ret = api_obj.deployed_code_files('folder-path/*.py')
+            assert ret == {'file-Name'}
+
+    def test_deployed_code_files_err(self, api_obj):
+        with patch('ae.pythonanywhere.PythonanywhereApi.find_project_files', return_value=None):
+            ret = api_obj.deployed_code_files('folder-path/*.py')
+            assert ret is None
+
+    def test_deployed_file_content(self, api_obj):
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=Mock(content=b'content-str')):
+            ret = api_obj.deployed_file_content('folder-path/file.path.xxx')
+            assert ret == b'content-str'
+
+    def test_deployed_file_content_err(self, api_obj):
+        api_obj.error_message = 'dep_fil_content-err-message'
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=Mock(content=b'content-str')):
+            ret = api_obj.deployed_file_content('folder-path/file.path.xxx')
+            assert ret is None
+
+    def test_deploy_file(self, api_obj):
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=Mock()):
+            ret = api_obj.deploy_file('folder-path/file.path.xxx', b'file-content')
+        assert ret is api_obj.error_message
+
+    def test_delete_file_or_folder(self, api_obj):
+        with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=Mock()):
+            ret = api_obj.delete_file_or_folder('folder-path/file.path.xxx')
+        assert ret is api_obj.error_message
+
+
 @skip_gitlab_ci  # skip on gitlab because of missing remote repository user account token
-class TestHostRunningOnlyLocally:
+class TestIntegrationRunningOnlyLocally:
     def test_init_and_clean_up_from_last_failed_test_run(self, connection):
         assert connection.error_message == ""
 
@@ -110,19 +223,18 @@ class TestHostRunningOnlyLocally:
         assert connection.error_message == ""
         assert isinstance(consoles, list)
 
-    def test_deploy_file_and_deployed_file_content_and_deployed_version(self, con_pkg):
+    def test_deployed_file_content(self, con_pkg):
         con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
 
         assert con_pkg.deployed_file_content(pkg0_ini_path) == pkg0_ini_content
-        assert con_pkg.error_message == ""
 
-        assert con_pkg.deployed_version() == pkg0_version
         assert con_pkg.error_message == ""
 
         inv_fil_path = "not/existing/file_path"
-        assert con_pkg.deployed_file_content(inv_fil_path) is None
-        assert inv_fil_path in con_pkg.error_message
 
+        assert con_pkg.deployed_file_content(inv_fil_path) is None
+
+        assert inv_fil_path in con_pkg.error_message
         con_pkg.error_message = ""                          # clear con_pkg instance error
 
     def test_files_iterator_absolute_path(self, con_pkg):
@@ -293,12 +405,12 @@ class TestHostRunningOnlyLocally:
 
 
 @skip_gitlab_ci  # skip on gitlab because of missing remote repository user account token
-class TestHostRunningOnlyLocallyWithPatchedSkipper:
+class TestIntegrationRunningOnlyLocallyWithPatchedSkipper:
     # with con_pkg.skip_enter_folder patched by deployed_code_file() or find_project_files()
     def test_deployed_code_files(self, con_pkg):
         con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
 
-        assert con_pkg.deployed_code_files({os.path.join(TEST_PROJECT_NAME, '**', '*.py')}) == {pkg0_ini_path}
+        assert con_pkg.deployed_code_files({os.path.join(TST_PROJECT_NAME, '**', '*.py')}) == {pkg0_ini_path}
         assert con_pkg.error_message == ""
 
         found_paths = con_pkg.deployed_code_files(['*/**/media*/*'])
@@ -322,7 +434,7 @@ class TestHostRunningOnlyLocallyWithPatchedSkipper:
         assert found_paths == {pkg0_static_file, pkg2_static_file}  # static_ini_file  get excluded
 
         found_paths = con_pkg.deployed_code_files(['**/static/*'],
-                                                  skip_file_path=lambda _: _.startswith(f'{TEST_PROJECT_NAME}/static/'))
+                                                  skip_file_path=lambda _: _.startswith(f'{TST_PROJECT_NAME}/static/'))
         assert con_pkg.error_message == ""
         assert found_paths == {static_ini_file, pkg2_static_file}   # pkg0_static_file get excluded
 

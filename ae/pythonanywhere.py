@@ -74,7 +74,6 @@ more useful methods
 the most useful methods of the :class:`PythonanywhereAPI` class are (check the source code for more):~
 
 * :meth:`~PythonanywhereAPI.deployed_file_content`: determine the file content of a file, deployed to the web server.
-* :meth:`~PythonanywhereAPI.deployed_version`: determine the version of the deployed django project package.
 * :meth:`~PythonanywhereAPI.deploy_file`: add or update a project file to the web server.
 * :meth:`~PythonanywhereAPI.delete_file_or_folder`: delete a file or folder on the web server.
 
@@ -93,12 +92,11 @@ from typing import Any, Callable, Container, Iterable, Optional, Union, cast
 
 import requests
 
-from ae.base import PY_INIT, ErrorMsgMixin                                                  # type: ignore
+from ae.base import ErrorMsgMixin                                                           # type: ignore
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
-from ae.dev_ops import code_version                                                         # type: ignore
 
 
-__version__ = '0.3.2'
+__version__ = '0.3.3'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -297,15 +295,6 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         if self.error_message:
             return None
         return response.content
-
-    def deployed_version(self) -> str:
-        """ determine the version of a deployed django project package.
-
-        :return:                version string of the package deployed to the web host/server
-                                or empty string if package version file or version-in-file not found.
-        """
-        init_file_content = self.deployed_file_content(os.path.join(self.project_name, PY_INIT))
-        return "" if init_file_content is None else code_version(init_file_content)
 
     def deploy_file(self, file_path: str, file_content: bytes) -> str:
         """ add or update a project file to the web server.
