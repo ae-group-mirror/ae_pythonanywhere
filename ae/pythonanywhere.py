@@ -96,7 +96,7 @@ from ae.base import ErrorMsgMixin                                               
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.3'
+__version__ = '0.3.4'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -153,6 +153,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
 
         response = self._request(url_path, f"fetching files in folder {folder_path}")
         if not self.error_message:
+            # noinspection PyUnnecessaryCast
             found_file_infos = cast(Optional[dict[str, dict[str, Any]]], self._from_json(response))
             if found_file_infos is not None:        # == not self.error_message:
                 return [{'file_path': os.path.join(folder_path, _name), 'type': _info['type']}
@@ -166,7 +167,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
     def _from_json(self, response: requests.Response) -> Optional[Union[list[dict[str, Any]],
                                                                         dict[str, dict[str, Any]],
                                                                         dict[str, str]]]:
-        """ convert json in response to python type (list/dict).
+        """ convert JSON in response to python type (list/dict).
 
         :param response:        response from requests to convert into python data type.
         :return:                list|dict of dictionaries|str converted from the response content or None on error.
@@ -214,7 +215,8 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         response = requests.Response()
         response.reason = method_call_err_msg
         response.status_code = 489  # hopefully not clashing with real client error (400...499)
-        while True:
+        retries = 6
+        while retries > 0:
             try:
                 response = method(f"{self.base_url}{url_path}", headers=self.protocol_headers, **request_kwargs)
                 if response.status_code != 429:     # too many requests per minute against host api
@@ -223,7 +225,8 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
             except (requests.HTTPError, Exception) as ex:   # pylint: disable=broad-exception-caught
                 self.error_message = method_call_err_msg + f" (exception={ex})"
                 break
-            time.sleep(12)
+            time.sleep(12.0)
+            retries -= 1
 
         if response.status_code in success_codes:
             self.error_message = ""
@@ -242,6 +245,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         if not self.error_message:
             consoles = self._from_json(response)
             if consoles:
+                # noinspection PyUnnecessaryCast
                 return cast(list[dict[str, Any]], consoles)
         return []
 

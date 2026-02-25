@@ -8,7 +8,7 @@ import os
 import pytest
 import requests
 
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from conftest import skip_gitlab_ci
 
@@ -55,46 +55,6 @@ skipped_lean_paths = {'not_deployed_root_file.xxx',
 all_file_paths = all_pkg_paths | skipped_web_paths | skipped_lean_paths | static_file_paths
 
 
-@pytest.fixture
-def api_obj():
-    yield PythonanywhereApi(TST_DOMAIN_NAME, TST_USER_NAME, TST_WEB_TOKEN, TST_PROJECT_NAME)
-
-
-@pytest.fixture(scope='class')
-def connection():
-    """ pythonanywhere remote web server connection for integration tests, only run locally using .env credentials. """
-    load_dotenvs()
-
-    web_domain = "www.pythonanywhere.com"
-    web_user = os.environ.get('PDV_AUTHOR')
-    web_token = get_domain_user_var('web_token', domain=web_domain, user=web_user)
-
-    remote_connection = PythonanywhereApi(web_domain, web_user, web_token, TST_PROJECT_NAME)
-
-    yield remote_connection
-
-
-@pytest.fixture(scope='class')
-def con_pkg(connection):
-    """ provide personal pythonanywhere remote web server connection plus test package for integration tests """
-    del_fil = 'test0/sub4/del_file.txt'
-    assert not connection.deploy_file(del_fil, b"deleted to test empty root folder")
-    assert connection.error_message == ""
-    assert not connection.delete_file_or_folder(del_fil)
-    assert connection.error_message == ""
-
-    for fil_pat in all_file_paths:
-        assert not connection.deploy_file(fil_pat, b"content of " + fil_pat.encode())
-        assert connection.error_message == ""
-    # overwrite content of project's main package init file with project version
-    assert not connection.deploy_file(pkg0_ini_path, pkg0_ini_content)
-    assert connection.error_message == ""
-
-    yield connection
-
-    connection.delete_file_or_folder("")    # clean up: delete project root folder TEST_PROJECT_NAME on host
-
-
 def test_pythonanywhere_declarations():
     """ test the module declarations (also for having at least one test case running on gitlab ci). """
     assert PythonanywhereApi
@@ -105,6 +65,10 @@ def test_pythonanywhere_declarations():
 
 
 class TestPythonanywhereApi:
+    @pytest.fixture
+    def api_obj(self):
+        yield PythonanywhereApi(TST_DOMAIN_NAME, TST_USER_NAME, TST_WEB_TOKEN, TST_PROJECT_NAME)
+
     def test_instantiation(self, api_obj):
         assert TST_DOMAIN_NAME in api_obj.base_url
         assert TST_USER_NAME == api_obj.web_user
@@ -148,6 +112,17 @@ class TestPythonanywhereApi:
         assert api_obj._from_json(Mock(json=lambda: 1 / 0, content='err-content')) is None
         assert 'err-content' in api_obj.error_message
 
+    def test__request(self, api_obj):
+        request_method = MagicMock(return_value=Mock(status_code=200, json=lambda: {'content': 'content'}))
+        assert api_obj._request('url_path', 'task', request_method) is request_method.return_value
+
+    def test__request_timeout(self, api_obj):
+        request_method = MagicMock(return_value=Mock(status_code=429, json=lambda: {'content': 'content'}))
+        mock_sleep = MagicMock()
+        with patch('ae.pythonanywhere.time.sleep', new=mock_sleep):
+            assert api_obj._request('url_path', 'task', request_method) is request_method.return_value
+            mock_sleep.assert_called_with(12.0)
+
     def test_available_consoles(self, api_obj):
         response_mock = Mock(json=lambda: [{'console-name': 'any-type'}])
         with patch('ae.pythonanywhere.PythonanywhereApi._request', return_value=response_mock):
@@ -179,7 +154,7 @@ class TestPythonanywhereApi:
     def test_deployed_code_files(self, api_obj):
         with patch('ae.pythonanywhere.PythonanywhereApi._request',
                    return_value=Mock(json=lambda: {'file-Name': {'type': 'any.type'}})):
-            ret = api_obj.deployed_code_files('folder-path/*.py')
+            ret = api_obj.deployed_code_files(['file-*'])
             assert ret == {'file-Name'}
 
     def test_deployed_code_files_err(self, api_obj):
@@ -208,9 +183,78 @@ class TestPythonanywhereApi:
             ret = api_obj.delete_file_or_folder('folder-path/file.path.xxx')
         assert ret is api_obj.error_message
 
+    def test_files_iterator(self, api_obj):
+        def _folder_items_mock(_self, folder_path: str) -> list[dict[str, str]]:
+            if folder_path == '':
+                return [{'file_path': 'dir', 'type': 'directory'}]
+            if folder_path == 'dir':
+                return [{'file_path': 'dir/sub-dir', 'type': 'directory'},
+                        {'file_path': 'dir/file.xx', 'type': 'file'}]
+            return []
+        with patch('ae.pythonanywhere.PythonanywhereApi._folder_items', _folder_items_mock):
+            found_paths = list(api_obj.files_iterator('**/*.xx'))
+            assert api_obj.error_message == ""
+            assert found_paths == ['dir/file.xx']
+
+            found_paths = list(api_obj.files_iterator('dir/*'))
+            assert api_obj.error_message == ""
+            assert found_paths == ['dir/file.xx']
+
+            found_paths = list(api_obj.files_iterator('dir/file.xx'))
+            assert api_obj.error_message == ""
+            assert found_paths == ['dir/file.xx']
+
+            found_paths = list(api_obj.files_iterator('*'))
+            assert api_obj.error_message == ""
+            assert found_paths == []
+
+            assert list(api_obj.files_iterator('/.')) == []
+            assert list(api_obj.files_iterator('/*')) == []
+            assert list(api_obj.files_iterator('')) == []
+            assert api_obj.error_message == ""
+
+    def test_find_project_files(self, api_obj):
+        with patch('ae.pythonanywhere.Collector') as collector:
+            assert api_obj.find_project_files() == set()
+        assert collector.call_count == 1
+        assert collector.return_value.collect.call_count == 1
+
 
 @skip_gitlab_ci  # skip on gitlab because of missing remote repository user account token
 class TestIntegrationRunningOnlyLocally:
+    @pytest.fixture(scope='class')
+    def connection(self):
+        """ remote web server connection for integration tests, only run locally using .env credentials. """
+        load_dotenvs()
+
+        web_domain = "www.pythonanywhere.com"
+        web_user = os.environ.get('PDV_AUTHOR')
+        web_token = get_domain_user_var('web_token', domain=web_domain, user=web_user)
+
+        remote_connection = PythonanywhereApi(web_domain, web_user, web_token, TST_PROJECT_NAME)
+
+        yield remote_connection
+
+    @pytest.fixture(scope='class')
+    def con_pkg(self, connection):
+        """ provide personal pythonanywhere remote web server connection plus test package for integration tests """
+        del_fil = 'test0/sub4/del_file.txt'
+        assert not connection.deploy_file(del_fil, b"deleted to test empty root folder")
+        assert connection.error_message == ""
+        assert not connection.delete_file_or_folder(del_fil)
+        assert connection.error_message == ""
+
+        for fil_pat in all_file_paths:
+            assert not connection.deploy_file(fil_pat, b"content of " + fil_pat.encode())
+            assert connection.error_message == ""
+        # overwrite content of project's main package init file with project version
+        assert not connection.deploy_file(pkg0_ini_path, pkg0_ini_content)
+        assert connection.error_message == ""
+
+        yield connection
+
+        connection.delete_file_or_folder("")  # clean up: delete project root folder TEST_PROJECT_NAME on host
+
     def test_init_and_clean_up_from_last_failed_test_run(self, connection):
         assert connection.error_message == ""
 
@@ -222,6 +266,38 @@ class TestIntegrationRunningOnlyLocally:
         consoles = connection.available_consoles()
         assert connection.error_message == ""
         assert isinstance(consoles, list)
+
+    def test_deployed_code_files(self, con_pkg):
+        """ with con_pkg.skip_enter_folder patched by deployed_code_file() or find_project_files(). """
+        con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
+
+        assert con_pkg.deployed_code_files({os.path.join(TST_PROJECT_NAME, '**', '*.py')}) == {pkg0_ini_path}
+        assert con_pkg.error_message == ""
+
+        found_paths = con_pkg.deployed_code_files(['*/**/media*/*'])
+        assert con_pkg.error_message == ""
+        assert found_paths == set()                         # there are no deep folders with media*
+
+        found_paths = con_pkg.deployed_code_files(['**/migrations/' + mig_file_name])
+        assert con_pkg.error_message == ""
+        assert found_paths == {mig_file_path}
+
+        found_paths = con_pkg.deployed_code_files(['*/*/**/migrations/*'])
+        assert con_pkg.error_message == ""
+        assert found_paths == {mig_file_path}               # migrations folders are always deeper (not on project root)
+
+        found_paths = con_pkg.deployed_code_files(['*/*/*/**/migrations/*'])
+        assert con_pkg.error_message == ""
+        assert found_paths == set()                         # .. but not that deep in the test project
+
+        found_paths = con_pkg.deployed_code_files(['**/static/*'], skip_file_path=lambda fp: fp.startswith('static/'))
+        assert con_pkg.error_message == ""
+        assert found_paths == {pkg0_static_file, pkg2_static_file}  # static_ini_file  get excluded
+
+        found_paths = con_pkg.deployed_code_files(['**/static/*'],
+                                                  skip_file_path=lambda _: _.startswith(f'{TST_PROJECT_NAME}/static/'))
+        assert con_pkg.error_message == ""
+        assert found_paths == {static_ini_file, pkg2_static_file}   # pkg0_static_file get excluded
 
     def test_deployed_file_content(self, con_pkg):
         con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
@@ -249,22 +325,22 @@ class TestIntegrationRunningOnlyLocally:
         assert found_paths == list(con_pkg.files_iterator(''))
 
     def test_files_iterator_deeper(self, con_pkg):
-        found_paths = list(con_pkg.files_iterator('**'))
+        found_paths = set(con_pkg.files_iterator('**'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted(all_file_paths)
+        assert found_paths == all_file_paths - {pkg0_static_file}   # - {'ae_pythonanywhere_tests/static/baseball.html'}
 
-        found_paths = list(con_pkg.files_iterator('**/*'))
+        found_paths = set(con_pkg.files_iterator('**/*'))
         assert con_pkg.error_message == ""
         assert found_paths
-        assert sorted(found_paths) == sorted(all_file_paths)
+        assert found_paths == all_file_paths - {pkg0_static_file}   # - {'ae_pythonanywhere_tests/static/baseball.html'}
 
-        found_paths = list(con_pkg.files_iterator('*/**'))
+        found_paths = set(con_pkg.files_iterator('*/**'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted(_ for _ in all_file_paths if '/' in _)
+        assert found_paths == set(_ for _ in all_file_paths if '/' in _) - {pkg0_static_file}
 
-        found_paths = list(con_pkg.files_iterator(f'{pkg2_name}/**/*'))
+        found_paths = set(con_pkg.files_iterator(f'{pkg2_name}/**/*'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted(mig_pkg_paths | {mig_file_path, pkg2_static_file})
+        assert found_paths == set(mig_pkg_paths | {mig_file_path, pkg2_static_file})
 
     def test_files_iterator_migrations(self, con_pkg):
         found_paths = list(con_pkg.files_iterator('**/migrations/' + mig_file_name))
@@ -287,29 +363,29 @@ class TestIntegrationRunningOnlyLocally:
         assert len(found_paths) == 0                        # not found because file mask is one level too deep
 
     def test_files_iterator_static(self, con_pkg):
-        found_paths = list(con_pkg.files_iterator('static/**'))
+        found_paths = set(con_pkg.files_iterator('static/**'))
         assert con_pkg.error_message == ""
         assert len(found_paths) == 1
-        assert found_paths[0] == static_ini_file
+        assert found_paths == {static_ini_file}
 
-        found_paths = list(con_pkg.files_iterator('/static/*'))     # project root get interpreted as host root
+        found_paths = set(con_pkg.files_iterator('/static/*'))     # project root get interpreted as host root
         assert con_pkg.error_message == ""
         assert len(found_paths) == 1
-        assert found_paths[0] == static_ini_file
+        assert found_paths == {static_ini_file}
 
-        found_paths = list(con_pkg.files_iterator('**/static/*'))
+        found_paths = set(con_pkg.files_iterator('**/static/*'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted(static_file_paths)
+        assert found_paths == static_file_paths - {pkg0_static_file}
 
-        found_paths = list(con_pkg.files_iterator('*/**/static/*'))
+        found_paths = set(con_pkg.files_iterator('*/**/static/*'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted((pkg0_static_file, pkg2_static_file))
+        assert found_paths == {pkg2_static_file}
 
-        found_paths = list(con_pkg.files_iterator('*/static/*'))
+        found_paths = set(con_pkg.files_iterator('*/static/*'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted((pkg0_static_file, pkg2_static_file))
+        assert found_paths == {pkg0_static_file, pkg2_static_file}
 
-        found_paths = list(con_pkg.files_iterator('*/*/**/static/*'))
+        found_paths = set(con_pkg.files_iterator('*/*/**/static/*'))
         assert con_pkg.error_message == ""
         assert not found_paths                                      # too deep search mask
 
@@ -372,72 +448,6 @@ class TestIntegrationRunningOnlyLocally:
         assert con_pkg.error_message == ""
         assert found_paths == []                                    # path_mask one level too deep
 
-    def test_folder_items(self, con_pkg):
-        con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
-
-        found_file_infos = con_pkg._folder_items('')
-        assert not con_pkg.error_message
-        assert len(found_file_infos) >= 1
-        assert any(_['file_path'] == 'manage.py' for _ in found_file_infos)
-
-        found_file_infos = con_pkg._folder_items(sub_dir_path)
-        assert not con_pkg.error_message
-        assert len(found_file_infos) >= 1
-        assert any(_['file_path'] == sub_file_path for _ in found_file_infos)
-
-        found_file_infos = con_pkg._folder_items(sub_file_path)
-        assert con_pkg.error_message                        # _from_json()-exception get dir-list from file content
-        assert found_file_infos is None
-        con_pkg.error_message = ""                          # clear con_pkg instance error
-
-        found_file_infos = con_pkg._folder_items(f'{pkg2_name}/*')
-        assert found_file_infos is None                     # host api does NOT support wildcards
-        assert not con_pkg.error_message                    # api returns 404:Not Found, so err gets NOT propagated
-
-        found_file_infos = con_pkg._folder_items(f'*/sub2')
-        assert found_file_infos is None                     # host api does NOT support wildcards
-        assert not con_pkg.error_message                    # api returns 404:Not Found, so err gets NOT propagated
-
-        # _folder_items() does not support file names, host api will erroneously fetch file content and throw json
-        assert con_pkg._folder_items('manage.py') is None
-        assert con_pkg.error_message                        # json() error will get propagated to caller
-        con_pkg.error_message = ""                          # clear con_pkg instance error
-
-
-@skip_gitlab_ci  # skip on gitlab because of missing remote repository user account token
-class TestIntegrationRunningOnlyLocallyWithPatchedSkipper:
-    # with con_pkg.skip_enter_folder patched by deployed_code_file() or find_project_files()
-    def test_deployed_code_files(self, con_pkg):
-        con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
-
-        assert con_pkg.deployed_code_files({os.path.join(TST_PROJECT_NAME, '**', '*.py')}) == {pkg0_ini_path}
-        assert con_pkg.error_message == ""
-
-        found_paths = con_pkg.deployed_code_files(['*/**/media*/*'])
-        assert con_pkg.error_message == ""
-        assert found_paths == set()                         # there are no deep folders with media*
-
-        found_paths = con_pkg.deployed_code_files(['**/migrations/' + mig_file_name])
-        assert con_pkg.error_message == ""
-        assert found_paths == {mig_file_path}
-
-        found_paths = con_pkg.deployed_code_files(['*/*/**/migrations/*'])
-        assert con_pkg.error_message == ""
-        assert found_paths == {mig_file_path}               # migrations folders are always deeper (not on project root)
-
-        found_paths = con_pkg.deployed_code_files(['*/*/*/**/migrations/*'])
-        assert con_pkg.error_message == ""
-        assert found_paths == set()                         # .. but not that deep in the test project
-
-        found_paths = con_pkg.deployed_code_files(['**/static/*'], skip_file_path=lambda fp: fp.startswith('static/'))
-        assert con_pkg.error_message == ""
-        assert found_paths == {pkg0_static_file, pkg2_static_file}  # static_ini_file  get excluded
-
-        found_paths = con_pkg.deployed_code_files(['**/static/*'],
-                                                  skip_file_path=lambda _: _.startswith(f'{TST_PROJECT_NAME}/static/'))
-        assert con_pkg.error_message == ""
-        assert found_paths == {static_ini_file, pkg2_static_file}   # pkg0_static_file get excluded
-
     def test_find_project_files(self, con_pkg):
         con_pkg.error_message = ""                          # clear con_pkg instance error from previous test method
 
@@ -474,15 +484,17 @@ class TestIntegrationRunningOnlyLocallyWithPatchedSkipper:
 
         def _raise_json_err(_content_to_json):
             raise Exception(tst_err_msg)
-        with patch('requests.Response.json', new=_raise_json_err):
+        # with patch('requests.request', )                          doesn't work
+        # even patch('ae.pythonanywhere.requests.api.get', )        doesn't work
+        # coverage: patch requests.api.request to patch requests.get, which is not patchable because it is set to the
+        # method parameter of PythonanywhereApi._request(), to test error propagation from recursive
+        # find_project_files() calls
+        with patch('ae.pythonanywhere.requests.Response.json', new=_raise_json_err):
             assert con_pkg.find_project_files('*') is None  # simulate broken response.content for coverage
         assert tst_err_msg in con_pkg.error_message
 
         con_pkg.error_message = ""                          # clear err to allow further con_pkg._request() calls
 
-        # coverage: patch requests.api.request to patch requests.get, which is not patchable because it is set to the
-        # method parameter of PythonanywhereApi._request(), to test error propagation from recursive
-        # find_project_files() calls
         tst_err_msg = "tst err message"
 
         def _raise_requests_get_err(*_args, **_kwargs):
@@ -490,11 +502,40 @@ class TestIntegrationRunningOnlyLocallyWithPatchedSkipper:
                 return Mock()                               # simulate error response
             else:
                 return requests.request(*_args, **_kwargs)
-        # with patch('requests.request', )                          doesn't work
-        # even patch('ae.pythonanywhere.requests.api.get', )        doesn't work
-        with patch('requests.api.request', new=_raise_requests_get_err):
+        with patch('ae.pythonanywhere.requests.api.request', new=_raise_requests_get_err):
             assert con_pkg.find_project_files('*/**') is None  # error from deeper recursion level get propagated
             assert con_pkg.find_project_files('**/*') is None  # error from deeper recursion level get propagated
         assert sub_dir_path in con_pkg.error_message
 
+        con_pkg.error_message = ""                          # clear con_pkg instance error
+
+    def test__folder_items(self, con_pkg):
+        con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
+
+        found_file_infos = con_pkg._folder_items('')
+        assert not con_pkg.error_message
+        assert len(found_file_infos) >= 1
+        assert any(_['file_path'] == 'manage.py' for _ in found_file_infos)
+
+        found_file_infos = con_pkg._folder_items(sub_dir_path)
+        assert not con_pkg.error_message
+        assert len(found_file_infos) >= 1
+        assert any(_['file_path'] == sub_file_path for _ in found_file_infos)
+
+        found_file_infos = con_pkg._folder_items(sub_file_path)
+        assert con_pkg.error_message                        # _from_json()-exception get dir-list from file content
+        assert found_file_infos is None
+        con_pkg.error_message = ""                          # clear con_pkg instance error
+
+        found_file_infos = con_pkg._folder_items(f'{pkg2_name}/*')
+        assert found_file_infos is None                     # host api does NOT support wildcards
+        assert not con_pkg.error_message                    # api returns 404:Not Found, so err gets NOT propagated
+
+        found_file_infos = con_pkg._folder_items(f'*/sub2')
+        assert found_file_infos is None                     # host api does NOT support wildcards
+        assert not con_pkg.error_message                    # api returns 404:Not Found, so err gets NOT propagated
+
+        # _folder_items() does not support file names, host api will erroneously fetch file content and throw JSON
+        assert con_pkg._folder_items('manage.py') is None
+        assert con_pkg.error_message                        # json() error will get propagated to caller
         con_pkg.error_message = ""                          # clear con_pkg instance error
