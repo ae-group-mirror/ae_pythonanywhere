@@ -2,3 +2,5 @@ requests
 types-requests
 ae_base
 ae_paths
+ae_shell            # for integration test
+
