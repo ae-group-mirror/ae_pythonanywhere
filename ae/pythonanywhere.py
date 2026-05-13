@@ -92,11 +92,11 @@ from typing import Any, Callable, Container, Iterable, Optional, Union, cast
 
 import requests
 
-from ae.base import ErrorMsgMixin                                                           # type: ignore
+from ae.app_log import ErrorMsgMixin                                                        # type: ignore
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.4'
+__version__ = '0.3.5'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes

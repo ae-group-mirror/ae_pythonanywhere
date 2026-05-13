@@ -1,6 +1,6 @@
 requests
 types-requests
-ae_base
+ae_app_log
 ae_paths
 ae_shell            # for integration test
 

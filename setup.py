@@ -1,4 +1,4 @@
-# THIS FILE IS EXCLUSIVELY MAINTAINED by the project aedev.project_tpls v0.3.76
+# THIS FILE IS EXCLUSIVELY MAINTAINED by the project aedev.project_tpls v0.3.77
 """ setup of ae namespace module portion pythonanywhere: PythonAnywhere Web API Client. """
 import sys
 # noinspection PyUnresolvedReferences
@@ -33,7 +33,6 @@ setup_kwargs = {
             'pylint',
             'pytest',
             'pytest-cov',
-            'pytest-django',
             'typing',
             'types-setuptools',
         ],
@@ -45,7 +44,6 @@ setup_kwargs = {
             'pylint',
             'pytest',
             'pytest-cov',
-            'pytest-django',
             'typing',
             'types-setuptools',
         ],
@@ -53,7 +51,7 @@ setup_kwargs = {
     'install_requires': [
         'requests',
         'types-requests',
-        'ae_base',
+        'ae_app_log',
         'ae_paths',
         'ae_shell',
     ],
@@ -81,7 +79,7 @@ setup_kwargs = {
     },
     'python_requires': '>=3.12',
     'url': 'https://gitlab.com/ae-group/ae_pythonanywhere',
-    'version': '0.3.4',
+    'version': '0.3.5',
     'zip_safe': True,
 }
 

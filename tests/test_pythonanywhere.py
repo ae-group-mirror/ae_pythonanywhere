@@ -12,7 +12,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 from conftest import skip_gitlab_ci
 
-from ae.base import PY_CACHE_FOLDER, PY_INIT, load_dotenvs, norm_name, os_path_join
+from ae.base import PY_CACHE_FOLDER, PY_INIT, norm_name, os_path_join
+from ae.system import load_dotenvs
 from ae.shell import get_domain_user_var
 from ae.pythonanywhere import PythonanywhereApi
 
