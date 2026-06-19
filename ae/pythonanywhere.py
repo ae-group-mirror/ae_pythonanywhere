@@ -96,7 +96,7 @@ from ae.app_log import ErrorMsgMixin                                            
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.5'
+__version__ = '0.3.6'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -149,7 +149,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         """
         url_path = self.pkg_files_url_part
         if folder_path:
-            url_path += folder_path + '/'
+            url_path += folder_path + "/"
 
         response = self._request(url_path, f"fetching files in folder {folder_path}")
         if not self.error_message:
@@ -334,11 +334,11 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
                                 path string of the found file relative to the project root folder and a `type` key
                                 containing the string `'directory'` or `'file'`.
         """
-        if path_mask.startswith('/'):
+        if path_mask.startswith("/"):
             path_mask = path_mask[1:]
         if path_mask in ('', '.') or path_mask.endswith('/.'):
             path_mask = path_mask[:-1] + '*'    # ae_paths.normalize() is converting empty mask string into '-'
-        mask_parts = path_mask.split('/')
+        mask_parts = path_mask.split("/")
         level_count = len(mask_parts)
 
         while level_index < level_count and '*' not in mask_parts[level_index] and '?' not in mask_parts[level_index]:
@@ -354,12 +354,12 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
                 level_index += 1
             file_pattern = mask_parts[level_index] if level_index < level_count else '*'
 
-        file_infos = self._folder_items('/'.join(mask_parts[:match_index]))
+        file_infos = self._folder_items("/".join(mask_parts[:match_index]))
         for file_info in file_infos or ():
             item_path, is_folder = file_info['file_path'], file_info['type'] == 'directory'
             item_name = os.path.basename(item_path)
             matched = fnmatchcase(item_name, file_pattern)
-            assert not matched or item_path == '/'.join(mask_parts[:match_index] + [item_name])
+            assert not matched or item_path == "/".join(mask_parts[:match_index] + [item_name])
 
             if matched and not is_folder and level_index + 1 >= level_count:
                 yield item_path
@@ -369,7 +369,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
                     deep_parts = (mask_parts[:match_index] + [item_name]     # == file_path == only-folders-path
                                   + (['**'] if deep_search and (not matched or file_pattern in ('*', '**')) else [])
                                   + mask_parts[level_index + int(matched):])
-                    yield from self.files_iterator('/'.join(deep_parts), level_index=match_index + 1)
+                    yield from self.files_iterator("/".join(deep_parts), level_index=match_index + 1)
 
     def find_project_files(self, path_mask: str = '',
                            skip_file_path: Callable[[str], bool] = lambda _: False,
