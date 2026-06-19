@@ -319,7 +319,7 @@ class TestIntegrationRunningOnlyLocally:
 
         found_paths = list(con_pkg.files_iterator('*'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted(_ for _ in all_file_paths if '/' not in _)
+        assert sorted(found_paths) == sorted(_ for _ in all_file_paths if "/" not in _)
 
         assert found_paths == list(con_pkg.files_iterator('/.'))
         assert found_paths == list(con_pkg.files_iterator('/*'))
@@ -337,7 +337,7 @@ class TestIntegrationRunningOnlyLocally:
 
         found_paths = set(con_pkg.files_iterator('*/**'))
         assert con_pkg.error_message == ""
-        assert found_paths == set(_ for _ in all_file_paths if '/' in _) - {pkg0_static_file}
+        assert found_paths == set(_ for _ in all_file_paths if "/" in _) - {pkg0_static_file}
 
         found_paths = set(con_pkg.files_iterator(f'{pkg2_name}/**/*'))
         assert con_pkg.error_message == ""
@@ -454,7 +454,7 @@ class TestIntegrationRunningOnlyLocally:
 
         found_paths = con_pkg.find_project_files()          # search files in the current working dir (project root)
         assert con_pkg.error_message == ""
-        assert found_paths == set(_ for _ in all_file_paths if '/' not in _)
+        assert found_paths == set(_ for _ in all_file_paths if "/" not in _)
 
         assert found_paths == con_pkg.find_project_files('*')
 
