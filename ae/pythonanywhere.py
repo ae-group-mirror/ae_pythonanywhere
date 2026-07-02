@@ -2,7 +2,7 @@
 PythonAnywhere Web API Client
 =============================
 
-this portion provides the class :class:`PythonanywhereApip . an instance of this class are used as a
+this portion provides the class :class:`PythonanywhereApi` . an instance of this class are used as a
 client to interact with the PythonAnywhere web server API, which gives you access on web servers like
 ``www.pythonanywhere.com`` and ``eu.pythonanywhere.com``, for managing and inspecting deployed project files.
 
@@ -14,7 +14,7 @@ constructor::
 * the remote connection username in the :paramref:`~PythonanywhereApi.web_user` argument, and
 * the personal user credential token string in :paramref:`~PythonanywhereApi.web_token`.
 * the :paramref:`~PythonanywhereApi.project_name` argument gets the name of the web project package,
-  which is also used as the sub-folder name, situated underneath of the remote user's home directory.
+  which is also used as the sub-folder name, situated underneath of the remote users home directory.
 
 the :meth:`~PythonanywhereApi.find_project_files` method of a client instance searches for files within
 the deployed project directory. this method is designed to overcome the PythonAnywhere API limit of 1000
@@ -63,7 +63,7 @@ temporary directories::
         print(f"Error fetching files: {api.error_message}")
     elif all_files:
         print(f"Found {len(all_files)} files:")
-        print("\n".join(sorted(list(all_files))))
+        print(sorted(list(all_files)))
     else:
         print("No files found or project directory is empty.")
 
@@ -86,9 +86,10 @@ the most useful methods of the :class:`PythonanywhereAPI` class are (check the s
 import os
 import time
 
+from collections.abc import Callable, Container, Iterable
 from fnmatch import fnmatchcase
 from functools import partial
-from typing import Any, Callable, Container, Iterable, Optional, Union, cast
+from typing import Any, cast
 
 import requests
 
@@ -96,7 +97,7 @@ from ae.app_log import ErrorMsgMixin                                            
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.6'
+__version__ = '0.3.7'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -138,7 +139,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         self.pkg_files_url_part = f"files/path/home/{self.web_user}/{project_name}/"
         self._project_name = project_name
 
-    def _folder_items(self, folder_path: str) -> Optional[list[dict[str, str]]]:
+    def _folder_items(self, folder_path: str) -> list[dict[str, str]] | None:
         """ determine the files in the specified folder path.
 
         :param folder_path:     the remote path of the folder to search in.
@@ -154,7 +155,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         response = self._request(url_path, f"fetching files in folder {folder_path}")
         if not self.error_message:
             # noinspection PyUnnecessaryCast
-            found_file_infos = cast(Optional[dict[str, dict[str, Any]]], self._from_json(response))
+            found_file_infos = cast(dict[str, dict[str, Any]] | None, self._from_json(response))
             if found_file_infos is not None:        # == not self.error_message:
                 return [{'file_path': os.path.join(folder_path, _name), 'type': _info['type']}
                         for _name, _info in found_file_infos.items()]
@@ -164,9 +165,10 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
 
         return None
 
-    def _from_json(self, response: requests.Response) -> Optional[Union[list[dict[str, Any]],
-                                                                        dict[str, dict[str, Any]],
-                                                                        dict[str, str]]]:
+    def _from_json(self, response: requests.Response) -> (list[dict[str, Any]]
+                                                          | dict[str, dict[str, Any]]
+                                                          | dict[str, str]
+                                                          | None):
         """ convert JSON in response to python type (list/dict).
 
         :param response:        response from requests to convert into python data type.
@@ -272,7 +274,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         return ""
 
     def deployed_code_files(self, path_masks: Iterable[str], skip_file_path: Callable[[str], bool] = lambda _: False
-                            ) -> Optional[set[str]]:
+                            ) -> set[str] | None:
         """ determine all deployed code files of given package name deployed to the pythonanywhere server.
 
         :param path_masks:      root package paths with glob wildcards to collect deployed code files from.
@@ -289,7 +291,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
                 return None
         return set(collector.files)
 
-    def deployed_file_content(self, file_path: str) -> Optional[bytes]:
+    def deployed_file_content(self, file_path: str) -> bytes | None:
         """ determine the file content of a file deployed to a web server.
 
         :param file_path:       path of a deployed file relative to the project root.
@@ -373,8 +375,8 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
 
     def find_project_files(self, path_mask: str = '',
                            skip_file_path: Callable[[str], bool] = lambda _: False,
-                           collector: Optional[Collector] = None,
-                           ) -> Optional[set[str]]:
+                           collector: Collector | None = None,
+                           ) -> set[str] | None:
         """ determine the server files matching the glob pattern provided in :paramref:`~find_project_files.path_mask`.
 
         not using the files tree api endpoints/function (files/tree/?path=/home/{self.web_user}/{project_name})
