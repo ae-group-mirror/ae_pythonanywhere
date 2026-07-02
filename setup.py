@@ -79,7 +79,7 @@ setup_kwargs = {
     },
     'python_requires': '>=3.12',
     'url': 'https://gitlab.com/ae-group/ae_pythonanywhere',
-    'version': '0.3.6',
+    'version': '0.3.7',
     'zip_safe': True,
 }
 

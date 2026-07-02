@@ -15,6 +15,8 @@ from conftest import skip_gitlab_ci
 from ae.base import PY_CACHE_FOLDER, PY_INIT, norm_name, os_path_join
 from ae.system import load_dotenvs
 from ae.shell import get_domain_user_var
+
+
 from ae.pythonanywhere import PythonanywhereApi
 
 
@@ -229,7 +231,7 @@ class TestIntegrationRunningOnlyLocally:
         load_dotenvs()
 
         web_domain = "www.pythonanywhere.com"
-        web_user = os.environ.get('PDV_AUTHOR')
+        web_user = os.environ.get('PDV_AUTHOR', "missing os.environ variable PDV_AUTHOR")
         web_token = get_domain_user_var('web_token', domain=web_domain, user=web_user)
 
         remote_connection = PythonanywhereApi(web_domain, web_user, web_token, TST_PROJECT_NAME)
@@ -515,11 +517,13 @@ class TestIntegrationRunningOnlyLocally:
 
         found_file_infos = con_pkg._folder_items('')
         assert not con_pkg.error_message
+        assert found_file_infos is not None
         assert len(found_file_infos) >= 1
         assert any(_['file_path'] == 'manage.py' for _ in found_file_infos)
 
         found_file_infos = con_pkg._folder_items(sub_dir_path)
         assert not con_pkg.error_message
+        assert found_file_infos is not None
         assert len(found_file_infos) >= 1
         assert any(_['file_path'] == sub_file_path for _ in found_file_infos)
 
