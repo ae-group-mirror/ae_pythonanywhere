@@ -2,33 +2,24 @@
 PythonAnywhere Web API Client
 =============================
 
-this portion provides the class :class:`PythonanywhereApi` . an instance of this class are used as a
+this portion provides the class :class:`PythonanywhereApi`. an instance of this class are used as a
 client to interact with the PythonAnywhere web server API, which gives you access on web servers like
 ``www.pythonanywhere.com`` and ``eu.pythonanywhere.com``, for managing and inspecting deployed project files.
 
 initialize an API client with connection details for a specific project passed as arguments to the class
 constructor::
 
-* the :paramref:`~PythonanywhereApi.web_domain` argument expects the used remote web host domain address
-  (e.g., ``eu.pythonanywhere.com``).
-* the remote connection username in the :paramref:`~PythonanywhereApi.web_user` argument, and
-* the personal user credential token string in :paramref:`~PythonanywhereApi.web_token`.
-* the :paramref:`~PythonanywhereApi.project_name` argument gets the name of the web project package,
-  which is also used as the sub-folder name, situated underneath of the remote users home directory.
+    * the :paramref:`~PythonanywhereApi.web_domain` argument expects the used remote web host domain address
+      (e.g., ``eu.pythonanywhere.com``).
+    * the remote connection username in the :paramref:`~PythonanywhereApi.web_user` argument, and
+    * the personal user credential token string in :paramref:`~PythonanywhereApi.web_token`.
+    * the :paramref:`~PythonanywhereApi.project_name` argument gets the name of the web project package,
+      which is also used as the sub-folder name, situated underneath of the remote users home directory.
 
 the :meth:`~PythonanywhereApi.find_project_files` method of a client instance searches for files within
 the deployed project directory. this method is designed to overcome the PythonAnywhere API limit of 1000
-files per request by recursively calling the API on subdirectories (see `API: File Storage`_).
-its arguments are::
-
-* :paramref:`~PythonanywhereApi.path_mask`: the file mask including relative path to the package project root to
-  be searched. passing an empty string (the default) returns all files in the project root directory.
-* :paramref:`~PythonanywhereApi.collector`: file collector callable (see the class :class:`~ae.paths.Collector`).
-* :paramref:`~PythonanywhereApi.skip_file_path`: selector callable that accepts a file/folder path (relative to the
-  project root) and returns ``True`` to exclude it from the search result. calls for folders have a ``/.`` suffix.
-
-the :meth:`~PythonanywhereApi.find_project_files` method returns a :class:`set` of file paths relative to the
-project root, or ``None`` if an error occurred.
+files per request by recursively calling the API on subdirectories. it returns a :class:`set` of
+file paths relative to the project root, or ``None`` if an error occurred.
 
 
 usage examples
@@ -81,7 +72,8 @@ the most useful methods of the :class:`PythonanywhereAPI` class are (check the s
     PythonAnywhere File Storage API documents: `https://help.pythonanywhere.com/pages/API/`__
 
 .. hint::
-    a similar package can be found at `https://gitlab.com/texperience/pythonanywhereapiclient`_.
+    a similar package can be found at `https://gitlab.com/texperience/pythonanywhereapiclient`__
+
 """
 import os
 import time
@@ -97,7 +89,7 @@ from ae.app_log import ErrorMsgMixin                                            
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.7'
+__version__ = '0.3.8'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -386,11 +378,13 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
 
         :param path_mask:       file mask including relative path to the package project root to be searched.
                                 passing an empty string (the default) returns all files in the package root directory.
-        :param skip_file_path:  called for each found file/folder with the path_mask relative to the package root folder
-                                as argument, returning True to exclude the specified item from the returned result set.
-                                calls of a folder have a prefix of a slash character followed by a dot (`"/."`) and
-                                help to minimize the number of calls against the web server api.
-        :param collector:       file collector callable.
+        :param skip_file_path:  selector callable that accepts a file/folder path (relative to the project root),
+                                which gets called for each found file/folder with the path_mask relative to the
+                                package root folder as argument. the callable has to return `True` to exclude the
+                                specified item from the returned result set. calls for folder items does have a
+                                suffix of a slash character followed by a dot (`"/."`) - returning `True` for
+                                folder items would help to minimize the number of calls against the web server api.
+        :param collector:       file collector callable (see the class :class:`~ae.paths.Collector`).
         :return:                set of file paths of the package deployed on the web, relative to the project root
                                 or None if an error occurred. all files underneath a
         """
