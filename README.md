@@ -1,12 +1,12 @@
-<!-- THIS FILE IS EXCLUSIVELY MAINTAINED by the project ae.ae v0.3.108 -->
+<!-- THIS FILE IS EXCLUSIVELY MAINTAINED by the project ae.ae v0.3.109 -->
 <!-- THIS FILE IS EXCLUSIVELY MAINTAINED by the project aedev.namespace_root_tpls v0.3.32 -->
-# pythonanywhere 0.3.8
+# pythonanywhere 0.3.9
 
 [![GitLab develop](https://img.shields.io/gitlab/pipeline/ae-group/ae_pythonanywhere/develop?logo=python)](
     https://gitlab.com/ae-group/ae_pythonanywhere)
 [![LatestPyPIrelease](
-    https://img.shields.io/gitlab/pipeline/ae-group/ae_pythonanywhere/release0.3.8?logo=python)](
-    https://gitlab.com/ae-group/ae_pythonanywhere/-/tree/release0.3.8)
+    https://img.shields.io/gitlab/pipeline/ae-group/ae_pythonanywhere/release0.3.9?logo=python)](
+    https://gitlab.com/ae-group/ae_pythonanywhere/-/tree/release0.3.9)
 [![PyPIVersions](https://img.shields.io/pypi/v/ae_pythonanywhere)](
     https://pypi.org/project/ae-pythonanywhere/#history)
 

@@ -69,10 +69,10 @@ the most useful methods of the :class:`PythonanywhereAPI` class are (check the s
 * :meth:`~PythonanywhereAPI.delete_file_or_folder`: delete a file or folder on the web server.
 
 ..hint::
-    PythonAnywhere File Storage API documents: `https://help.pythonanywhere.com/pages/API/`__
+    PythonAnywhere File Storage API documents: <https://help.pythonanywhere.com/pages/API/>
 
 .. hint::
-    a similar package can be found at `https://gitlab.com/texperience/pythonanywhereapiclient`__
+    a similar package can be found at <https://gitlab.com/texperience/pythonanywhereapiclient>
 
 """
 import os
@@ -89,7 +89,7 @@ from ae.app_log import ErrorMsgMixin                                            
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.8'
+__version__ = '0.3.9'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -201,9 +201,10 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         :param success_codes:   container of response.status_code success codes.
         :param request_kwargs:  additional request method arguments.
         :return:                request response. if on error occurred then the instance string attribute
-                                :attr:`.error_message` contains an error message. if the caller is not checking for
-                                errors and not resetting the error message string, then this function will accumulate
-                                further errors to :attr:`.error_message`, separated by two new line characters.
+                                :attr:`~ae.app_log.ErrorMsgMixi.error_message` contains an error message.
+                                if the caller is not checking for errors and not resetting the error message
+                                string, then this function will accumulate further errors to
+                                :attr:`~ae.app_log.ErrorMsgMixi.error_message`, separated by two new line characters.
         """
         method_call_err_msg = f"requests '{method}' method call failed"
         response = requests.Response()
