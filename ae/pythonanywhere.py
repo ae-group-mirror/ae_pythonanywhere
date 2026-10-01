@@ -85,11 +85,12 @@ from typing import Any, cast
 
 import requests
 
+from ae.base import URI_SVC_SEP                                                             # type: ignore
 from ae.app_log import ErrorMsgMixin                                                        # type: ignore
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.9'
+__version__ = '0.3.10'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -106,7 +107,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         """
         super().__init__()
 
-        self.base_url = f"https://{web_domain}/api/v0/user/{web_user}/"
+        self.base_url = f"https{URI_SVC_SEP}{web_domain}/api/v0/user/{web_user}/"
         self.consoles_url_part = "consoles/"
         self.protocol_headers = {'Authorization': f"Token {web_token}"}
 

@@ -468,15 +468,15 @@ class TestIntegrationRunningOnlyLocally:
         assert con_pkg.error_message == ""
         assert isinstance(con_pkg.error_message, str)
 
-        def _skippa1(_):
+        def _skip_pa1(_):
             return sub_file_name not in _
-        found_paths = con_pkg.find_project_files('**/*', skip_file_path=_skippa1)
+        found_paths = con_pkg.find_project_files('**/*', skip_file_path=_skip_pa1)
         assert con_pkg.error_message == ""
         assert found_paths == set()     # because the folders pkg2_name+sub_dir_path will be skipped; see next test case
 
-        def _skippa2(_):
+        def _skip_pa2(_):
             return _ != f'{pkg2_name}/.' and _ != f'{sub_dir_path}/.' and sub_file_name not in _
-        found_paths = con_pkg.find_project_files('**/*', skip_file_path=_skippa2)
+        found_paths = con_pkg.find_project_files('**/*', skip_file_path=_skip_pa2)
         assert con_pkg.error_message == ""
         assert found_paths == {sub_file_path}
 
