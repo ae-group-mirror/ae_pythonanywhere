@@ -19,7 +19,7 @@ constructor::
 the :meth:`~PythonanywhereApi.find_project_files` method of a client instance searches for files within
 the deployed project directory. this method is designed to overcome the PythonAnywhere API limit of 1000
 files per request by recursively calling the API on subdirectories. it returns a :class:`set` of
-file paths relative to the project root, or ``None`` if an error occurred.
+file paths relative to the project root, or `None` if an error occurred.
 
 
 usage examples
@@ -75,7 +75,6 @@ the most useful methods of the :class:`PythonanywhereAPI` class are (check the s
     a similar package can be found at <https://gitlab.com/texperience/pythonanywhereapiclient>
 
 """
-import os
 import time
 
 from collections.abc import Callable, Container, Iterable
@@ -85,12 +84,12 @@ from typing import Any, cast
 
 import requests
 
-from ae.base import URI_SVC_SEP                                                             # type: ignore
+from ae.base import os_path_basename, os_path_join, os_path_splitext                        # type: ignore
 from ae.app_log import ErrorMsgMixin                                                        # type: ignore
 from ae.paths import Collector, CollYieldItems, SearcherRetType, coll_items                 # type: ignore
 
 
-__version__ = '0.3.10'
+__version__ = '0.3.11'
 
 
 class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-attributes
@@ -107,7 +106,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         """
         super().__init__()
 
-        self.base_url = f"https{URI_SVC_SEP}{web_domain}/api/v0/user/{web_user}/"
+        self.base_url = f"https://{web_domain}/api/v0/user/{web_user}/"
         self.consoles_url_part = "consoles/"
         self.protocol_headers = {'Authorization': f"Token {web_token}"}
 
@@ -136,7 +135,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         """ determine the files in the specified folder path.
 
         :param folder_path:     the remote path of the folder to search in.
-        :return:                list of found files or None if an error occurred (check self.error_message for error
+        :return:                list of found files or `None` if an error occurred (check self.error_message for error
                                 details). each list item contains a dict with the item 'file_path` to keep the absolute
                                 path of the found file, and a 'type' item with the file type (like returned by the
                                 Pythonanywhere API).
@@ -150,7 +149,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
             # noinspection PyUnnecessaryCast
             found_file_infos = cast(dict[str, dict[str, Any]] | None, self._from_json(response))
             if found_file_infos is not None:        # == not self.error_message:
-                return [{'file_path': os.path.join(folder_path, _name), 'type': _info['type']}
+                return [{'file_path': os_path_join(folder_path, _name), 'type': _info['type']}
                         for _name, _info in found_file_infos.items()]
 
         if response.status_code == 404:
@@ -165,7 +164,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         """ convert JSON in response to python type (list/dict).
 
         :param response:        response from requests to convert into python data type.
-        :return:                list|dict of dictionaries|str converted from the response content or None on error.
+        :return:                list|dict of dictionaries|str converted from the response content or `None` on error.
         """
         try:
             return response.json()
@@ -177,7 +176,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         """ prepare the file collector.
 
         :param skipper:         callback receiving a string argument with the file path and returning a boolean
-                                True if the file has to be excluded from the file search result.
+                                `True` if the file has to be excluded from the file search result.
         :return:                callable receiving a string argument with the file path and returning an Iterable
                                 of tuples, to be used as the :paramref:`~ae.paths.Collector.item_collector` argument
                                 of the file/folder :class:`~ae.paths.Collector` class.
@@ -186,7 +185,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
             return not skipper(file_path)
 
         def _det(file_path: str):
-            return os.path.splitext(file_path)[1]
+            return os_path_splitext(file_path)[1]
 
         self.skip_enter_folder = skipper
 
@@ -198,7 +197,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
 
         :param url_path:        sub url path to send request to.
         :param task:            string describing the task to archive (used to compile an error message).
-        :param method:          requests method (get, post, push, delete, patch, ...).
+        :param method:          requests method (get, post, push, delete, patch).
         :param success_codes:   container of response.status_code success codes.
         :param request_kwargs:  additional request method arguments.
         :return:                request response. if on error occurred then the instance string attribute
@@ -210,7 +209,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         method_call_err_msg = f"requests '{method}' method call failed"
         response = requests.Response()
         response.reason = method_call_err_msg
-        response.status_code = 489  # hopefully not clashing with real client error (400...499)
+        response.status_code = 489  # hopefully not clashing with real client error (400 to 499)
         retries = 6
         while retries > 0:
             try:
@@ -273,11 +272,11 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
 
         :param path_masks:      root package paths with glob wildcards to collect deployed code files from.
         :param skip_file_path:  called for each found file/folder with the path_mask relative to the package root folder
-                                as argument, returning True to exclude the specified item from the returned result set.
-                                calls of a folder have a prefix of a slash character followed by a dot (`"/."`) and
+                                as argument, returning `True` to exclude the specified item from the returned result
+                                set. calls of a folder have a prefix of a slash character followed by a dot (`"/."`) and
                                 help to minimize the number of calls against the web server api.
         :return:                set of file paths of the package deployed on the web, relative to the project root
-                                or None if an error occurred.
+                                or `None` if an error occurred.
         """
         collector = Collector(item_collector=self._prepare_collector(skip_file_path))
         for item_mask in path_masks:
@@ -289,7 +288,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         """ determine the file content of a file deployed to a web server.
 
         :param file_path:       path of a deployed file relative to the project root.
-        :return:                file content as bytes or None if error occurred (check self.error_message).
+        :return:                file content as bytes or `None` if error occurred (check self.error_message).
         """
         response = self._request(self.pkg_files_url_part + file_path, "fetching file content")
         if self.error_message:
@@ -353,7 +352,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
         file_infos = self._folder_items("/".join(mask_parts[:match_index]))
         for file_info in file_infos or ():
             item_path, is_folder = file_info['file_path'], file_info['type'] == 'directory'
-            item_name = os.path.basename(item_path)
+            item_name = os_path_basename(item_path)
             matched = fnmatchcase(item_name, file_pattern)
             assert not matched or item_path == "/".join(mask_parts[:match_index] + [item_name])
 
@@ -388,7 +387,7 @@ class PythonanywhereApi(ErrorMsgMixin):    # pylint: disable=too-many-instance-a
                                 folder items would help to minimize the number of calls against the web server api.
         :param collector:       file collector callable (see the class :class:`~ae.paths.Collector`).
         :return:                set of file paths of the package deployed on the web, relative to the project root
-                                or None if an error occurred. all files underneath a
+                                or `None` if an error occurred. all files underneath a
         """
         if not collector:
             collector = Collector(item_collector=self._prepare_collector(skip_file_path))

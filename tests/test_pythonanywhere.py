@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from conftest import skip_gitlab_ci
 
-from ae.base import PY_CACHE_FOLDER, PY_INIT, norm_name, os_path_join
+from ae.base import norm_name, os_path_join
 from ae.system import load_dotenvs
 from ae.shell import get_domain_user_var
 
@@ -25,9 +25,9 @@ TST_USER_NAME = 'py_any_user'
 TST_WEB_TOKEN = 'py_any_token'
 TST_PROJECT_NAME = 'ae_pythonanywhere_tests'        #: package name used for local unit and integration tests
 
-pkg0_ini_path = os.path.join(TST_PROJECT_NAME, PY_INIT)
+pkg0_ini_path = os_path_join(TST_PROJECT_NAME, '__init__' + '.py')
 pkg0_version = '333.66.9'
-pkg0_ini_content = f'""" test package doc string. """\n\n__version__ = \'{pkg0_version}\'\n'.encode()
+pkg0_ini_content = f'""" test package doc string. """\n\n__version__ = \'{pkg0_version}\'\n'.encode()  # VERSION_QUOTE
 pkg0_static_file = f'{TST_PROJECT_NAME}/static/baseball.html'
 
 pkg1_name = "test_pkg1"
@@ -39,7 +39,7 @@ sub_file_name = '.sub_file_name.z'
 sub_file_path = f'{sub_dir_path}/{sub_file_name}'
 mig_file_name = 'mig_fil.wxy'
 mig_file_path = f'{sub_dir_path}/migrations/{mig_file_name}'
-mig_pkg_paths = {sub_file_path, f'{sub_dir_path}/{PY_INIT}'}
+mig_pkg_paths = {sub_file_path, os_path_join(sub_dir_path, '__init__' + '.py')}
 pkg2_static_file = f'{pkg2_name}/static/a2.b'
 
 static_ini_file = 'static/initial.ttt'
@@ -47,7 +47,7 @@ static_file_paths = {static_ini_file, pkg0_static_file, pkg2_static_file}
 
 all_pkg_paths = {pkg0_ini_path, pkg1_file_path} | mig_pkg_paths
 
-skipped_web_paths = {f'{PY_CACHE_FOLDER}/x.y', f'{pkg1_name}/{PY_CACHE_FOLDER}/y.Z',
+skipped_web_paths = {f'{'__pycache__'}/x.y', f'{pkg1_name}/{'__pycache__'}/y.Z',
                      mig_file_path,
                      'media/media_file.jjj', 'media_ini/med.ia',
                      pkg0_static_file}
@@ -274,7 +274,7 @@ class TestIntegrationRunningOnlyLocally:
         """ with con_pkg.skip_enter_folder patched by deployed_code_file() or find_project_files(). """
         con_pkg.error_message = ""                          # clear con_pkg instance error from last test method
 
-        assert con_pkg.deployed_code_files({os.path.join(TST_PROJECT_NAME, '**', '*.py')}) == {pkg0_ini_path}
+        assert con_pkg.deployed_code_files({os_path_join(TST_PROJECT_NAME, '**', '*.py')}) == {pkg0_ini_path}
         assert con_pkg.error_message == ""
 
         found_paths = con_pkg.deployed_code_files(['*/**/media*/*'])
@@ -321,6 +321,7 @@ class TestIntegrationRunningOnlyLocally:
 
         found_paths = list(con_pkg.files_iterator('*'))
         assert con_pkg.error_message == ""
+        # noinspection bad-argument-type
         assert sorted(found_paths) == sorted(_ for _ in all_file_paths if "/" not in _)
 
         assert found_paths == list(con_pkg.files_iterator('/.'))
@@ -436,11 +437,13 @@ class TestIntegrationRunningOnlyLocally:
         found_paths = list(con_pkg.files_iterator('*/sub2/*'))
         assert con_pkg.error_message == ""
         assert sub_file_path in found_paths
-        assert sorted(found_paths) == sorted({sub_file_path, os.path.join(sub_dir_path, PY_INIT)})
+        # noinspection bad-argument-type
+        assert sorted(found_paths) == sorted({sub_file_path, os_path_join(sub_dir_path, '__init__' + '.py')})
 
         found_paths = list(con_pkg.files_iterator('**/sub2/*'))
         assert con_pkg.error_message == ""
-        assert sorted(found_paths) == sorted({sub_file_path, os.path.join(sub_dir_path, PY_INIT)})
+        # noinspection bad-argument-type
+        assert sorted(found_paths) == sorted({sub_file_path, os_path_join(sub_dir_path, '__init__' + '.py')})
 
         found_paths = list(con_pkg.files_iterator('*/sub2/*.z'))
         assert con_pkg.error_message == ""
