@@ -3,5 +3,5 @@ types-requests
 ae_base
 ae_app_log
 ae_paths
-ae_shell            # for integration test
+ae_shell            # only for integration test, together with ae_base and ae_system
 
